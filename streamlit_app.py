@@ -1,11 +1,11 @@
 import streamlit as st
 from openai import OpenAI
-import pdfplumber  # 追加
+import pdfplumber
 
 # Show title and description.
 st.title("📄 Document question answering")
 st.write(
-    "Upload a document below and ask a question about it – GPT will answer! "
+    "Upload documents below and ask a question about them – GPT will answer! "
     "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
 )
 
@@ -15,32 +15,35 @@ if not openai_api_key:
 else:
     client = OpenAI(api_key=openai_api_key)
 
-    # PDF対応
-    uploaded_file = st.file_uploader(
-        "Upload a document (.txt, .md, .pdf)", type=("txt", "md", "pdf")
+    # 複数ファイル対応
+    uploaded_files = st.file_uploader(
+        "Upload documents (.txt, .md, .pdf)", type=("txt", "md", "pdf"), accept_multiple_files=True
     )
 
     question = st.text_area(
-        "Now ask a question about the document!",
+        "Now ask a question about the documents!",
         placeholder="Can you give me a short summary?",
-        disabled=not uploaded_file,
+        disabled=not uploaded_files,
     )
 
-    if uploaded_file and question:
-        # ファイルタイプ判定
-        if uploaded_file.type == "application/pdf":
-            # PDFテキスト抽出
-            with pdfplumber.open(uploaded_file) as pdf:
-                document = ""
-                for page in pdf.pages:
-                    document += page.extract_text() or ""
-        else:
-            document = uploaded_file.read().decode()
+    if uploaded_files and question:
+        documents = []
+        for uploaded_file in uploaded_files:
+            if uploaded_file.type == "application/pdf":
+                with pdfplumber.open(uploaded_file) as pdf:
+                    text = ""
+                    for page in pdf.pages:
+                        text += page.extract_text() or ""
+                documents.append(text)
+            else:
+                documents.append(uploaded_file.read().decode())
 
+        # 各ドキュメントを区切ってまとめる
+        all_documents = "\n\n---\n\n".join(documents)
         messages = [
             {
                 "role": "user",
-                "content": f"Here's a document: {document} \n\n---\n\n {question}",
+                "content": f"Here are the documents:\n{all_documents}\n\n---\n\n{question}",
             }
         ]
 
